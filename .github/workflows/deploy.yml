@@ -8,7 +8,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
+    environment: Deploy env
     env:
       REPO_URL: https://github.com/${{ github.repository }}.git
       BRANCH: main
