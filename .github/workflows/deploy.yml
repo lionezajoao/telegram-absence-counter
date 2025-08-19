@@ -1,44 +1,71 @@
-name: Bot deployment
-
+name: Deploy
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build and push
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          push: true
-          tags: lionezajoao/telegram-absence-counter:latest
-
   deploy:
-    needs: build-and-push
     runs-on: ubuntu-latest
 
+    env:
+      REPO_URL: https://github.com/${{ github.repository }}.git
+      BRANCH: main
+      REMOTE_DIR: ~/telegram-absence-counter
+      IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/telegram-absence-counter
+      TAG: latest
+
     steps:
-      - name: Deploy to VM
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare repo on server (clone/pull)
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USERNAME }}
-          key: ${{ secrets.VM_SSH_KEY }}
+          password: ${{ secrets.VM_PASSWORD }}
+          script: |
+            set -e
+            if [ ! -d "$REMOTE_DIR/.git" ]; then
+              git clone --branch "$BRANCH" "$REPO_URL" "$REMOTE_DIR"
+            else
+              cd "$REMOTE_DIR"
+              git fetch origin
+              git checkout "$BRANCH"
+              git reset --hard "origin/$BRANCH"
+            fi
+
+      # Gera o .env NO SERVIDOR, conforme .env.example do repo
+      - name: Write .env on server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USERNAME }}
+          password: ${{ secrets.VM_PASSWORD }}
+          script: |
+            set -e
+            cd "$REMOTE_DIR"
+            cat > .env <<'ENV'
+            # --- telegram-absence-counter (.env gerado pelo GitHub Actions) ---
+            BOT_TOKEN=${{ secrets.BOT_TOKEN }}
+
+            PG_HOST=postgres
+            PG_DATABASE=${{ secrets.PG_DATABASE }}
+            PG_USER=${{ secrets.PG_USER }}
+            PG_PASSWORD=${{ secrets.PG_PASSWORD }}
+            PG_PORT=${{ secrets.PG_PORT }}
+            ENV
+
+      - name: Deploy with docker compose from cloned repo
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USERNAME }}
+          password: ${{ secrets.VM_PASSWORD }}
           port: ${{ secrets.VM_PORT }}
           script: |
-            echo "${{ secrets.ENV_FILE }}" > .env
-            docker-compose pull
-            docker-compose up -d
+            set -e
+            cd "$REMOTE_DIR"
+            docker compose up -d --build
