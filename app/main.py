@@ -1,21 +1,18 @@
 import os
 import telebot
-import logging
-import logging.config
 from dotenv import load_dotenv
 
 from app.src.bot_handler import BotHandler
 from app.database.bot_db import BotDB
+from app.src.config import get_logger
 
 load_dotenv()
 
 if __name__ == "__main__":
     # Configure logging
-    logging.config.fileConfig('logging_config.ini')
+    logger = get_logger(__name__)
     log_level = os.getenv("LOG_LEVEL", "INFO").upper()
-    logging.getLogger().setLevel(log_level)
-
-    logger = logging.getLogger(__name__)
+    logger.setLevel(log_level)
 
     BOT_TOKEN = os.getenv("BOT_TOKEN")
     if not BOT_TOKEN:
@@ -24,8 +21,8 @@ if __name__ == "__main__":
 
     bot = telebot.TeleBot(BOT_TOKEN)
 
-    db_client = BotDB()
-    bot_handler = BotHandler(db_client)
+    db_client = BotDB(logger)
+    bot_handler = BotHandler(db_client, logger)
 
     logger.info("Bot is starting...")
 

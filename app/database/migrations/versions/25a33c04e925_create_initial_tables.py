@@ -34,6 +34,10 @@ def upgrade() -> None:
         sa.Column('name', sa.String(), nullable=False),
         sa.Column('class_id', sa.String(), nullable=False),
         sa.Column('semester', sa.String(), nullable=True),
+        sa.Column('chat_id', sa.String(), nullable=True),
+        sa.Column('ts', sa.Time(), nullable=False),
+        sa.ForeignKeyConstraint(['chat_id'], ['chats.id'], ),
+        sa.UniqueConstraint('class_id', name='uq_class_id'),
         sa.PrimaryKeyConstraint('id')
     )
     op.create_table(

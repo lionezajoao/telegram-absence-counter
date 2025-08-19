@@ -46,6 +46,9 @@ class Base:
     def execute_query(self, query, params=None):
         """Executes a query with the given parameters."""
         try:
+            if self.conn.get_transaction_status() == psycopg2.extensions.TRANSACTION_STATUS_INERROR:
+                logger.warning("Transaction in error state, rolling back before executing new query.")
+                self.conn.rollback()
             logger.debug(f"Executing query: {query} with params: {params}")
             self.cursor.execute(query, params)
             self.conn.commit()
@@ -65,15 +68,20 @@ class Base:
         except Exception as e:
             _, _, exc_tb = sys.exc_info()
             logger.error(f"Error fetching data on line {exc_tb.tb_lineno}: {e}", exc_info=True)
+            self.conn.rollback()
             raise
 
     def fetch_one(self, query, params=None):
         """Executes a query and fetches a single result."""
         try:
+            if self.conn.get_transaction_status() == psycopg2.extensions.TRANSACTION_STATUS_INERROR:
+                logger.warning("Transaction in error state, rolling back before executing new query.")
+                self.conn.rollback()
             logger.debug(f"Fetching one result for query: {query} with params: {params}")
             self.cursor.execute(query, params)
             return self.cursor.fetchone()
         except Exception as e:
             _, _, exc_tb = sys.exc_info()
             logger.error(f"Error fetching data on line {exc_tb.tb_lineno}: {e}", exc_info=True)
+            self.conn.rollback()
             raise

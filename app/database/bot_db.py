@@ -18,11 +18,6 @@ class BotDB:
         self.db.connect(self.database)
         logger.info("BotDB initialized and connected to database.")
 
-    def close(self):
-        """Closes the database connection."""
-        self.db.close()
-        logger.info("BotDB database connection closed.")
-
     def insert_chat(self, chat_id: str, username: str = None, first_name: str = None):
         """Inserts a new chat into the database."""
         try:
@@ -133,7 +128,9 @@ class BotDB:
             query = "SELECT class_id, name, semester FROM classes WHERE chat_id = %s;"
             classes = self.db.fetch_all(query, (chat_id,))
             logger.debug(f"Retrieved {len(classes) if classes else 0} classes.")
-            return classes
+            if classes:
+                return [{"class_id": cls[0], "name": cls[1], "semester": cls[2]} for cls in classes]
+            return []
         except Exception as e:
             _, _, exc_tb = sys.exc_info()
             logger.error(f"Error getting all classes on line {exc_tb.tb_lineno}: {e}", exc_info=True)
