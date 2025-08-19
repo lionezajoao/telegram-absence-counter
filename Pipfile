@@ -6,8 +6,8 @@ name = "pypi"
 [packages]
 pytelegrambotapi = "*"
 python-dotenv = "*"
-psycopg2 = "*"
 psycopg2-binary = "*"
+alembic = "*"
 
 [dev-packages]
 
@@ -16,4 +16,4 @@ python_version = "3.12"
 
 [scripts]
 bot = "python -m app.main"
-create_db = "python -m scripts.create_database"
+migrate_db = "pipenv run alembic upgrade head"
