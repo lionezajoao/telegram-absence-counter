@@ -18,23 +18,25 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # (recomendado) Valida todos os secrets antes de começar
       - name: Validate required secrets
         run: |
           set -euo pipefail
           missing=0
-          check() { if [ -z "$1" ]; then echo "Missing: $2"; missing=1; fi; }
-          check "${VM_HOST:-}" VM_HOST
-          check "${VM_USERNAME:-}" VM_USERNAME
-          check "${VM_PASSWORD:-}" VM_PASSWORD
-          check "${VM_PORT:-}" VM_PORT
-          check "${BOT_TOKEN:-}" BOT_TOKEN
-          check "${PG_DATABASE:-}" PG_DATABASE
-          check "${PG_USER:-}" PG_USER
-          check "${PG_PASSWORD:-}" PG_PASSWORD
-          check "${PG_PORT:-}" PG_PORT
+          check() { if [ -z "$1" ]; then echo "Missing: $2"; missing=1; else echo "OK: $2"; fi; }
+
+          check "${{ secrets.VM_HOST }}" VM_HOST
+          check "${{ secrets.VM_USERNAME }}" VM_USERNAME
+          check "${{ secrets.VM_PASSWORD }}" VM_PASSWORD
+          check "${{ secrets.VM_PORT }}" VM_PORT
+
+          check "${{ secrets.BOT_TOKEN }}" BOT_TOKEN
+          check "${{ secrets.PG_DATABASE }}" PG_DATABASE
+          check "${{ secrets.PG_USER }}" PG_USER
+          check "${{ secrets.PG_PASSWORD }}" PG_PASSWORD
+          check "${{ secrets.PG_PORT }}" PG_PORT
+
           if [ "$missing" -eq 1 ]; then
-            echo "❌ Configure os secrets acima em Settings → Secrets and variables → Actions"; exit 1;
+            echo "❌ Configure os secrets faltantes em Settings → Secrets and variables → Actions"; exit 1;
           fi
 
       - name: Prepare repo on server (clone/pull)
@@ -87,5 +89,4 @@ jobs:
           script: |
             set -e
             cd "${{ env.REMOTE_DIR }}"
-            # Se precisar de sudo no seu servidor, troque para: sudo docker compose up -d --build
             docker compose up -d --build
