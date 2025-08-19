@@ -51,7 +51,7 @@ class BotHandler:
         self.logger.info(f"Handling /register_class command for chat {chat_id}.")
         text = text.replace("/register_class", "")
         parts = text.split("|")
-        if len(parts) < 3:
+        if len(parts) < 2:
             self.logger.warning(f"Invalid /register_class usage by chat {chat_id}: '{text}'")
             return "Uso: /register_class <id_disciplina> | <nome_disciplina> | [semestre]"
 
@@ -68,7 +68,7 @@ class BotHandler:
         except Exception as e:
             _, _, exc_tb = sys.exc_info()
             self.logger.error(f"Error registering class {class_id} for chat {chat_id} on line {exc_tb.tb_lineno}: {e}", exc_info=True)
-            return f"Erro ao registrar disciplina: {e}"
+            return "Erro ao registrar disciplina, entre em contato com o suporte."
 
     def _add_absence_command(self, chat_id, text):
         self.logger.info(f"Handling /add_absence command for chat {chat_id}.")
@@ -91,7 +91,7 @@ class BotHandler:
         except Exception as e:
             _, _, exc_tb = sys.exc_info()
             self.logger.error(f"Error adding absence for chat {chat_id}, class {class_id} on line {exc_tb.tb_lineno}: {e}", exc_info=True)
-            return f"Erro ao adicionar falta: {e}"
+            return "Erro ao adicionar falta, entre em contato com o suporte."
 
     def _my_absences_command(self, chat_id, text):
         self.logger.info(f"Handling /my_absences command for chat {chat_id}.")
@@ -112,18 +112,23 @@ class BotHandler:
         except Exception as e:
             _, _, exc_tb = sys.exc_info()
             self.logger.error(f"Error getting absences for chat {chat_id}, class {class_id} on line {exc_tb.tb_lineno}: {e}", exc_info=True)
-            return f"Erro ao buscar faltas: {e}"
+            return "Erro ao buscar faltas, entre em contato com o suporte."
 
     def _total_absences_command(self, chat_id):
         self.logger.info(f"Handling /total_absences command for chat {chat_id}.")
         try:
-            total_count = self.db.get_total_absences(chat_id)
+            total_count = self.db.get_absences_by_class(chat_id)
             self.logger.info(f"Retrieved total {total_count} absences for chat {chat_id}.")
-            return f"Você tem um total de {total_count} falta(s) em todas as disciplinas."
+            if not total_count:
+                return "Nenhuma falta registrada ainda."
+            response = "Faltas por disciplina:\n"
+            for row in total_count:
+                response += f"- {row['class_name']} ({row['class_id']}): {row['count']} falta(s)\n"
+            return response
         except Exception as e:
             _, _, exc_tb = sys.exc_info()
             self.logger.error(f"Error getting total absences for chat {chat_id} on line {exc_tb.tb_lineno}: {e}", exc_info=True)
-            return f"Erro ao buscar total de faltas: {e}"
+            return "Erro ao buscar total de faltas, entre em contato com o suporte."
 
     def _list_classes_command(self, chat_id):
         self.logger.info(f"Handling /list_classes command for chat {chat_id}.")
@@ -144,7 +149,7 @@ class BotHandler:
         except Exception as e:
             _, _, exc_tb = sys.exc_info()
             self.logger.error(f"Error listing classes for chat {chat_id} on line {exc_tb.tb_lineno}: {e}", exc_info=True)
-            return f"Erro ao listar disciplinas: {e}"
+            return f"Erro ao listar disciplinas."
 
     def _help_command(self):
         self.logger.info("Handling /help command.")
