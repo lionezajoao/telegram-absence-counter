@@ -19,6 +19,23 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Validate required secrets
+        run: |
+            set -euo pipefail
+            missing=0
+            check() { if [ -z "$1" ]; then echo "Missing: $2"; missing=1; fi; }
+            check "${VM_HOST:-}" VM_HOST
+            check "${VM_USERNAME:-}" VM_USERNAME
+            check "${VM_PASSWORD:-}" VM_PASSWORD
+            check "${VM_PORT:-}" VM_PORT
+            check "${BOT_TOKEN:-}" BOT_TOKEN
+            check "${PG_DATABASE:-}" PG_DATABASE
+            check "${PG_USER:-}" PG_USER
+            check "${PG_PASSWORD:-}" PG_PASSWORD
+            check "${PG_PORT:-}" PG_PORT
+            if [ "$missing" -eq 1 ]; then
+            echo "❌ Configure os secrets acima em Settings → Secrets and variables → Actions"; exit 1;
+            fi
 
       - name: Prepare repo on server (clone/pull)
         uses: appleboy/ssh-action@master
