@@ -8,34 +8,34 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: Deploy env
+
     env:
       REPO_URL: https://github.com/${{ github.repository }}.git
       BRANCH: main
       REMOTE_DIR: ~/telegram-absence-counter
-      IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/telegram-absence-counter
-      TAG: latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # (recomendado) Valida todos os secrets antes de começar
       - name: Validate required secrets
         run: |
-            set -euo pipefail
-            missing=0
-            check() { if [ -z "$1" ]; then echo "Missing: $2"; missing=1; fi; }
-            check "${VM_HOST:-}" VM_HOST
-            check "${VM_USERNAME:-}" VM_USERNAME
-            check "${VM_PASSWORD:-}" VM_PASSWORD
-            check "${VM_PORT:-}" VM_PORT
-            check "${BOT_TOKEN:-}" BOT_TOKEN
-            check "${PG_DATABASE:-}" PG_DATABASE
-            check "${PG_USER:-}" PG_USER
-            check "${PG_PASSWORD:-}" PG_PASSWORD
-            check "${PG_PORT:-}" PG_PORT
-            if [ "$missing" -eq 1 ]; then
+          set -euo pipefail
+          missing=0
+          check() { if [ -z "$1" ]; then echo "Missing: $2"; missing=1; fi; }
+          check "${VM_HOST:-}" VM_HOST
+          check "${VM_USERNAME:-}" VM_USERNAME
+          check "${VM_PASSWORD:-}" VM_PASSWORD
+          check "${VM_PORT:-}" VM_PORT
+          check "${BOT_TOKEN:-}" BOT_TOKEN
+          check "${PG_DATABASE:-}" PG_DATABASE
+          check "${PG_USER:-}" PG_USER
+          check "${PG_PASSWORD:-}" PG_PASSWORD
+          check "${PG_PORT:-}" PG_PORT
+          if [ "$missing" -eq 1 ]; then
             echo "❌ Configure os secrets acima em Settings → Secrets and variables → Actions"; exit 1;
-            fi
+          fi
 
       - name: Prepare repo on server (clone/pull)
         uses: appleboy/ssh-action@master
@@ -43,31 +43,33 @@ jobs:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USERNAME }}
           password: ${{ secrets.VM_PASSWORD }}
+          port: ${{ secrets.VM_PORT }}
           script: |
             set -e
-            if [ ! -d "$REMOTE_DIR/.git" ]; then
-              git clone --branch "$BRANCH" "$REPO_URL" "$REMOTE_DIR"
+            if [ ! -d "${{ env.REMOTE_DIR }}/.git" ]; then
+              git clone --branch "${{ env.BRANCH }}" "${{ env.REPO_URL }}" "${{ env.REMOTE_DIR }}"
             else
-              cd "$REMOTE_DIR"
+              cd "${{ env.REMOTE_DIR }}"
               git fetch origin
-              git checkout "$BRANCH"
-              git reset --hard "origin/$BRANCH"
+              git checkout "${{ env.BRANCH }}"
+              git reset --hard "origin/${{ env.BRANCH }}"
             fi
 
-      # Gera o .env NO SERVIDOR, conforme .env.example do repo
       - name: Write .env on server
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USERNAME }}
           password: ${{ secrets.VM_PASSWORD }}
+          port: ${{ secrets.VM_PORT }}
           script: |
             set -e
-            cd "$REMOTE_DIR"
+            cd "${{ env.REMOTE_DIR }}"
             cat > .env <<'ENV'
             # --- telegram-absence-counter (.env gerado pelo GitHub Actions) ---
             BOT_TOKEN=${{ secrets.BOT_TOKEN }}
 
+            # Banco de Dados
             PG_HOST=postgres
             PG_DATABASE=${{ secrets.PG_DATABASE }}
             PG_USER=${{ secrets.PG_USER }}
@@ -84,5 +86,6 @@ jobs:
           port: ${{ secrets.VM_PORT }}
           script: |
             set -e
-            cd "$REMOTE_DIR"
+            cd "${{ env.REMOTE_DIR }}"
+            # Se precisar de sudo no seu servidor, troque para: sudo docker compose up -d --build
             docker compose up -d --build
