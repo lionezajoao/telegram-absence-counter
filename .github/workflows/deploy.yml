@@ -12,7 +12,7 @@ jobs:
     env:
       REPO_URL: https://github.com/${{ github.repository }}.git
       BRANCH: main
-      REMOTE_DIR: ~/telegram-absence-counter
+      REMOTE_DIR: telegram-absence-counter
 
     steps:
       - name: Checkout repository
