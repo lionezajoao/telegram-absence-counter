@@ -41,4 +41,4 @@ if __name__ == "__main__":
         logger.critical(f"Bot polling failed: {e}", exc_info=True)
     finally:
         logger.info("Bot is shutting down. Closing database connection.")
-        db_client.close()
+        db_client.close_connection()
