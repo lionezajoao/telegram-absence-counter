@@ -16,6 +16,11 @@ class BotDB:
         self.logger = logger
         self.logger.info("BotDB initialized and connected to database.")
 
+    def close_connection(self):
+        """Closes the database connection."""
+        self.db.close()
+        self.logger.info("BotDB connection closed.")
+
     def insert_chat(self, chat_id: str, username: str = None, first_name: str = None):
         """Inserts a new chat into the database."""
         try:
