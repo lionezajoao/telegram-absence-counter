@@ -24,7 +24,7 @@ services:
       POSTGRES_PASSWORD: ${PG_PASSWORD}
       POSTGRES_DB: ${PG_DATABASE}
     volumes:
-      - ./postgres_data:/var/lib/postgresql/data
+      - ./bot_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
