@@ -133,6 +133,50 @@ class BotDB:
             self.logger.error(f"Error getting absences by class for chat {chat_id} on line {exc_tb.tb_lineno}: {e}", exc_info=True)
             raise
 
+    def check_if_class_exists(self, chat_id: str, class_id: str) -> bool:
+        """Checks if a class exists for a specific chat."""
+        try:
+            query = "SELECT 1 FROM classes WHERE chat_id = %s AND class_id = %s;"
+            result = self.db.fetch_one(query, (chat_id, class_id))
+            exists = result is not None
+            self.logger.debug(f"Class {class_id} existence check for chat {chat_id}: {exists}.")
+            return exists
+        except Exception as e:
+            _, _, exc_tb = sys.exc_info()
+            self.logger.error(f"Error checking class existence for chat {chat_id}, class {class_id} on line {exc_tb.tb_lineno}: {e}", exc_info=True)
+            raise
+
+    def remove_absence(self, chat_id: str, class_id: str) -> bool:
+        """Removes an absence for a specific chat and class."""
+        try:
+            class_uuid_query = "SELECT id FROM classes WHERE class_id = %s AND chat_id = %s;"
+            class_uuid_result = self.db.fetch_one(class_uuid_query, (class_id, chat_id))
+            class_uuid = class_uuid_result[0]
+            
+            absence_query = "SELECT counter FROM absences WHERE chat_id = %s AND class_id = %s;"
+            absence_result = self.db.fetch_one(absence_query, (chat_id, class_uuid))
+            if not absence_result or absence_result[0] == 0:
+                self.logger.debug(f"No absence found for chat {chat_id} in class {class_id} when removing absence.")
+                return {
+                    "success": False,
+                    "message": f"Erro: Disciplina '{class_id}' sem faltas registradas."
+                }
+
+            query = "UPDATE absences SET counter = counter - 1 WHERE chat_id = %s AND class_id = %s;"
+            self.db.execute_query(query, (chat_id, class_uuid))
+            self.logger.info(f"Removed 1 absence for chat {chat_id} in class {class_id}.")
+            return {
+                "success": True,
+                "message": f"Falta removida com sucesso para '{class_id}', total de {absence_result[0] - 1} faltas."
+            }
+        except Exception as e:
+            _, _, exc_tb = sys.exc_info()
+            self.logger.error(f"Error removing absence for chat {chat_id}, class {class_id} on line {exc_tb.tb_lineno}: {e}", exc_info=True)
+            return {
+                "success": False,
+                "message": "Erro ao remover falta, entre em contato com o suporte."
+            }
+
     def get_all_classes(self, chat_id: str) -> list:
         """Returns all registered classes."""
         try:
