@@ -33,6 +33,8 @@ class BotHandler:
             return self._add_absence_command(chat_id, text)
         elif text.startswith("/my_absences"):
             return self._my_absences_command(chat_id, text)
+        elif text.startswith("/remove_absence"):
+            return self._remove_absence_command(chat_id, text)
         elif text == "/total_absences":
             return self._total_absences_command(chat_id)
         elif text == "/list_classes":
@@ -114,6 +116,32 @@ class BotHandler:
             self.logger.error(f"Error getting absences for chat {chat_id}, class {class_id} on line {exc_tb.tb_lineno}: {e}", exc_info=True)
             return "Erro ao buscar faltas, entre em contato com o suporte."
 
+    def _remove_absence_command(self, chat_id, text):
+        self.logger.info(f"Handling /remove_absence command for chat {chat_id}.")
+        parts = text.split(maxsplit=1)
+        if len(parts) < 2:
+            self.logger.warning(f"Invalid /remove_absence usage by chat {chat_id}: '{text}'")
+            return "Uso: /remove_absence <id_disciplina>"
+        
+        class_id = parts[1]
+        try:
+
+            if not self.db.check_if_class_exists(chat_id, class_id):
+                self.logger.info(f"Attempted to remove absence for non-existent class '{class_id}' by chat {chat_id}.")
+                return response["message"]
+
+            response = self.db.remove_absence(chat_id, class_id)
+            if not response["success"]:
+                self.logger.info(f"Attempted to remove absence '{class_id}' by chat {chat_id}. {response['message']}")
+                return response["message"]
+
+            self.logger.info(response["message"])
+            return response["message"]
+        except Exception as e:
+            _, _, exc_tb = sys.exc_info()
+            self.logger.error(f"Error removing absence for chat {chat_id}, class {class_id} on line {exc_tb.tb_lineno}: {e}", exc_info=True)
+            return "Erro ao remover falta, entre em contato com o suporte."
+
     def _total_absences_command(self, chat_id):
         self.logger.info(f"Handling /total_absences command for chat {chat_id}.")
         try:
@@ -159,6 +187,7 @@ class BotHandler:
             "/register_class <id> | <nome> | [semestre] - Registra uma nova disciplina. Lembre-se de separar os campos com o caractere '|'.\n"
             "/add_absence <id_disciplina> - Adiciona uma falta para a disciplina especificada.\n"
             "/my_absences <id_disciplina> - Verifica suas faltas para a disciplina especificada.\n"
+            "/remove_absence <id_disciplina> - Remove uma falta para a disciplina especificada.\n"
             "/total_absences - Verifica o total de faltas em todas as disciplinas.\n"
             "/list_classes - Lista todas as disciplinas registradas.\n"
             "/help - Exibe esta mensagem de ajuda.\n"
