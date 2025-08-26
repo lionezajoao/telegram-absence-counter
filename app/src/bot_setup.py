@@ -2,9 +2,8 @@ import os
 import telebot
 from dotenv import load_dotenv
 
-from app.src.bot_handler import BotHandler
-from app.database.bot_db import BotDB
 from app.src.config import get_logger
+from app.src.bot_handler import BotHandler
 
 load_dotenv()
 
@@ -24,11 +23,9 @@ def setup_handlers(bot: telebot.TeleBot, bot_handler: BotHandler, logger):
     def handle_all_messages(message):
         try:
             response = bot_handler.handle_message(message)
-            if isinstance(response, tuple):
-                response_text, keyboard = response
-                bot.reply_to(message, response_text, reply_markup=keyboard)
-            else:
-                bot.reply_to(message, response)
+            if response:
+                if response.get("type") == "send_message":
+                    bot.reply_to(message, response["text"], reply_markup=response.get("reply_markup"))
         except Exception as e:
             logger.exception(f"Error handling message from chat {message.chat.id}: {e}")
             bot.reply_to(message, "Ocorreu um erro inesperado. Por favor, tente novamente mais tarde.")
@@ -38,11 +35,11 @@ def setup_handlers(bot: telebot.TeleBot, bot_handler: BotHandler, logger):
         try:
             response = bot_handler.handle_callback_query(call)
             bot.answer_callback_query(call.id)
-            if isinstance(response, tuple):
-                text, keyboard = response
-                bot.send_message(call.message.chat.id, text, reply_markup=keyboard)
-            else:
-                bot.send_message(call.message.chat.id, response)
+            if response:
+                if response.get("type") == "send_message":
+                    bot.send_message(call.message.chat.id, response["text"], reply_markup=response.get("reply_markup"))
+                elif response.get("type") == "edit_message":
+                    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=response["text"], reply_markup=response.get("reply_markup"))
         except Exception as e:
             logger.exception(f"Error handling callback query from chat {call.message.chat.id}: {e}")
             bot.send_message(call.message.chat.id, "Ocorreu um erro inesperado. Por favor, tente novamente mais tarde.")
