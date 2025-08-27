@@ -24,7 +24,7 @@ if __name__ == "__main__":
             telebot.types.BotCommand(command="/list_classes", description="Listar disciplinas"),
             telebot.types.BotCommand(command="/total_absences", description="Ver total de faltas"),
             telebot.types.BotCommand(command="/register_class", description="Registrar uma nova disciplina"),
-            telebot.types.BotCommand(command="/help", description="Obter ajuda sobre os comandos disponíveis"),
+            telebot.types.BotCommand(command="/help", description="Obter informações sobre o bot"),
             telebot.types.BotCommand(command="/menu", description="Exibe o menu de opções")
         ])
 
@@ -33,9 +33,7 @@ if __name__ == "__main__":
 
     except ValueError as e:
         logger.critical(str(e))
+        raise e
     except Exception as e:
         logger.critical(f"An unexpected error occurred: {e}", exc_info=True)
-    finally:
-        if db_client:
-            logger.info("Bot is shutting down. Closing database connection.")
-            db_client.close_connection()
+        raise e

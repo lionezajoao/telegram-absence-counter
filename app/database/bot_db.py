@@ -25,7 +25,7 @@ class BotDB:
         """Inserts a new chat into the database."""
         try:
             query = "INSERT INTO chats (id, username, first_name, ts) VALUES (%s, %s, %s, %s);"
-            now = datetime.now().time()
+            now = datetime.now(timezone.utc).astimezone()
             self.db.execute_query(query, (chat_id, username, first_name, now))
             self.logger.info(f"Chat {chat_id} inserted successfully.")
         except Exception as e:

@@ -38,6 +38,7 @@ class BotHandler:
             "register_class": self._register_class_command,
             "help": self._help_command,
             "back_to_menu": self._menu_command,
+            "skip_semester": self._skip_semester_callback,
         }
 
     def _get_action_handlers(self):
@@ -106,14 +107,23 @@ class BotHandler:
                     return {"type": "edit_message", "text": response[0], "reply_markup": response[1]}
                 elif data == "register_class":
                     return handler(chat_id, call.message.text)
+                elif data == "skip_semester":
+                    return handler(chat_id)
                 else:
                     response = handler(chat_id)
-                    if isinstance(response, tuple):
+                    if isinstance(response, dict):
+                        return response
+                    elif isinstance(response, tuple):
                         return {"type": "edit_message", "text": response[0], "reply_markup": response[1]}
                     else:
                         return {"type": "send_message", "text": response}
 
-        return {"type": "send_message", "text": "Opção não reconhecida. Use /menu para voltar."}
+        return self._create_response_with_menu("Opção não reconhecida.")
+
+    def _create_response_with_menu(self, text):
+        keyboard = types.InlineKeyboardMarkup()
+        keyboard.add(types.InlineKeyboardButton("Menu", callback_data="back_to_menu"))
+        return {"type": "send_message", "text": text, "reply_markup": keyboard}
 
     def _create_main_keyboard(self, chat_id):
         keyboard = types.InlineKeyboardMarkup()
@@ -169,68 +179,31 @@ class BotHandler:
         self.logger.info(f"Starting /register_class conversation for chat {chat_id}.")
         self.user_states[chat_id] = "AWAITING_CLASS_ID"
         self.user_data[chat_id] = {}
-        return {"type": "send_message", "text": "Ok, vamos registrar uma nova disciplina. Qual é o ID da disciplina (ex: CS101)?"}
+        keyboard = types.InlineKeyboardMarkup()
+        keyboard.add(types.InlineKeyboardButton("Menu", callback_data="back_to_menu"))
+        return {"type": "send_message", "text": "Ok, vamos registrar uma nova disciplina. Qual é o ID da disciplina (ex: CS101)?", "reply_markup": keyboard}
 
     def _handle_class_id(self, chat_id, text):
         self.logger.info(f"Handling class ID for chat {chat_id}: {text}")
         self.user_data[chat_id]["class_id"] = text
         self.user_states[chat_id] = "AWAITING_CLASS_NAME"
-        return {"type": "send_message", "text": "Qual é o nome da disciplina?"}
+        keyboard = types.InlineKeyboardMarkup()
+        keyboard.add(types.InlineKeyboardButton("Menu", callback_data="back_to_menu"))
+        return {"type": "send_message", "text": "Qual é o nome da disciplina?", "reply_markup": keyboard}
 
     def _handle_class_name(self, chat_id, text):
         self.logger.info(f"Handling class name for chat {chat_id}: {text}")
         self.user_data[chat_id]["name"] = text
         self.user_states[chat_id] = "AWAITING_SEMESTER"
         keyboard = types.InlineKeyboardMarkup()
-        keyboard.add(types.InlineKeyboardButton("Pular", callback_data="skip_semester"))
+        keyboard.row(
+            types.InlineKeyboardButton("Pular", callback_data="skip_semester"),
+            types.InlineKeyboardButton("Menu", callback_data="back_to_menu")
+        )
         return {"type": "send_message", "text": "Qual é o semestre (opcional)?", "reply_markup": keyboard}
-
-    def _get_callback_handlers(self):
-        return {
-            "add_absence": self._ask_class_selection,
-            "remove_absence": self._ask_class_selection,
-            "my_absences": self._ask_class_selection,
-            "list_classes": self._list_classes_command,
-            "total_absences": self._total_absences_command,
-            "register_class": self._register_class_command,
-            "help": self._help_command,
-            "back_to_menu": self._menu_command,
-            "skip_semester": self._skip_semester_callback,
-        }
 
     def _skip_semester_callback(self, chat_id):
         return self._handle_semester(chat_id, "")
-
-    def handle_callback_query(self, call):
-        chat_id = str(call.message.chat.id)
-        self.logger.info(f"Handling callback query from chat {chat_id}: {call.data}")
-
-        data = call.data
-
-        if ":" in data:
-            action, class_id = data.split(":", 1)
-            class_id = class_id.strip()
-            handler = self.action_handlers.get(action)
-            if handler:
-                return handler(chat_id, class_id)
-        else:
-            handler = self.callback_handlers.get(data)
-            if handler:
-                if data in ["add_absence", "remove_absence", "my_absences"]:
-                    response = handler(chat_id, action=data)
-                    return {"type": "edit_message", "text": response[0], "reply_markup": response[1]}
-                elif data == "register_class":
-                    return handler(chat_id, call.message.text)
-                elif data == "skip_semester":
-                    return handler(chat_id)
-                else:
-                    response = handler(chat_id)
-                    if isinstance(response, tuple):
-                        return {"type": "edit_message", "text": response[0], "reply_markup": response[1]}
-                    else:
-                        return {"type": "send_message", "text": response}
-
-        return {"type": "send_message", "text": "Opção não reconhecida. Use /menu para voltar."}
 
     def _handle_semester(self, chat_id, text):
         self.logger.info(f"Handling semester for chat {chat_id}: {text}")
@@ -240,14 +213,15 @@ class BotHandler:
         try:
             self.db.insert_class(chat_id, class_data["class_id"], class_data["name"], class_data["semester"])
             response = f"Disciplina '{class_data['name']}' ({class_data['class_id']}) registrada com sucesso!"
+            del self.user_states[chat_id]
+            del self.user_data[chat_id]
+            return self._create_response_with_menu(response)
         except Exception as e:
             self.logger.error(f"Error registering class: {e}", exc_info=True)
             response = "Erro ao registrar disciplina."
-        finally:
             del self.user_states[chat_id]
             del self.user_data[chat_id]
-        
-        return {"type": "send_message", "text": response}
+            return self._create_response_with_menu(response)
 
     def _add_absence_command(self, chat_id, text):
         parts = text.split(maxsplit=1)
@@ -275,45 +249,38 @@ class BotHandler:
         try:
             total_count = self.db.get_absences_by_class(chat_id)
             if not total_count:
-                return {"type": "send_message", "text": "Nenhuma falta registrada ainda."}
+                return self._create_response_with_menu("Nenhuma falta registrada ainda.")
             response = "Faltas por disciplina:\n"
             for row in total_count:
                 response += f"- {row['class_name']} ({row['class_id']}): {row['count']} falta(s)\n"
-            return {"type": "send_message", "text": response}
+            return self._create_response_with_menu(response)
         except Exception as e:
             self.logger.error(f"Error getting total absences: {e}", exc_info=True)
-            return {"type": "send_message", "text": "Erro ao buscar total de faltas."}
+            return self._create_response_with_menu("Erro ao remover falta.")
 
     def _list_classes_command(self, chat_id, text=None):
         self.logger.info(f"Handling /list_classes command for chat {chat_id}.")
         try:
             classes = self.db.get_all_classes(chat_id)
             if not classes:
-                return {"type": "send_message", "text": "Nenhuma disciplina registrada ainda. Use /register_class para adicionar uma."}
+                return self._create_response_with_menu("Nenhuma disciplina registrada ainda. Use /register_class para adicionar uma.")
             response = "Disciplinas registradas:\n"
             for cls in classes:
                 response += f"- {cls['name']} ({cls['class_id']})"
                 if cls['semester']:
                     response += f" - Semestre: {cls['semester']}"
                 response += "\n"
-            return {"type": "send_message", "text": response}
+            return self._create_response_with_menu(response)
         except Exception as e:
             self.logger.error(f"Error listing classes: {e}", exc_info=True)
-            return {"type": "send_message", "text": "Erro ao listar disciplinas."}
+            return self._create_response_with_menu("Erro ao listar disciplinas.")
 
     def _help_command(self, chat_id, text=None):
-        return {"type": "send_message", "text": (
-            "Comandos disponíveis:\n"
-            "/start - Inicia o bot e exibe o menu.\n"
-            "/menu - Exibe o menu de opções.\n"
-            "/register_class - Inicia o processo de registro de uma nova disciplina.\n"
-            "/add_absence <id> - Adiciona uma falta.\n"
-            "/remove_absence <id> - Remove uma falta.\n"
-            "/my_absences <id> - Verifica suas faltas.\n"
-            "/total_absences - Lista o total de faltas por disciplina.\n"
-            "/list_classes - Lista todas as disciplinas registradas.\n"
-            "/help - Exibe esta mensagem de ajuda.\n"
-        )}
+        return self._create_response_with_menu((
+            "Projeto desenvolvido por https://github.com/lionezajoao:\n"
+            "Link do repositório: https://github.com/lionezajoao/telegram-absence-counter\n"
+            "Contribuições são bem-vindas!"
+        ))
 
     def _ask_class_selection(self, chat_id, action):
         response_data = {
@@ -330,25 +297,25 @@ class BotHandler:
             success = self.db.insert_absence(chat_id, class_id)
             if success:
                 count = self.db.get_absence_count(chat_id, class_id)
-                return {"type": "send_message", "text": f"Falta adicionada para '{class_id}'. Total de faltas: {count}.\nUse /menu para voltar."}
+                return self._create_response_with_menu(f"Falta adicionada para '{class_id}'. Total de faltas: {count}.")
             else:
-                return {"type": "send_message", "text": f"Erro: Disciplina '{class_id}' não encontrada."}
+                return self._create_response_with_menu(f"Erro: Disciplina '{class_id}' não encontrada.")
         except Exception as e:
             self.logger.error(f"Error adding absence: {e}", exc_info=True)
-            return {"type": "send_message", "text": "Erro ao adicionar falta."}
+            return self._create_response_with_menu("Erro ao adicionar falta.")
 
     def _my_absences_action(self, chat_id, class_id):
         try:
             count = self.db.get_absence_count(chat_id, class_id)
-            return {"type": "send_message", "text": f"Você tem {count} falta(s) em '{class_id}'.\nUse /menu para voltar."}
+            return self._create_response_with_menu(f"Você tem {count} falta(s) em '{class_id}'.")
         except Exception as e:
             self.logger.error(f"Error getting absences: {e}", exc_info=True)
-            return {"type": "send_message", "text": "Erro ao buscar faltas."}
+            return self._create_response_with_menu("Erro ao buscar faltas.")
 
     def _remove_absence_action(self, chat_id, class_id):
         try:
             response = self.db.remove_absence(chat_id, class_id)
-            return {"type": "send_message", "text": response["message"] + "\nUse /menu para voltar."}
+            return self._create_response_with_menu(response["message"])
         except Exception as e:
             self.logger.error(f"Error removing absence: {e}", exc_info=True)
-            return {"type": "send_message", "text": "Erro ao remover falta."}
+            return self._create_response_with_menu("Erro ao remover falta.")

@@ -51,3 +51,4 @@ def start_polling(bot: telebot.TeleBot, logger):
         bot.polling(none_stop=True)
     except Exception as e:
         logger.critical(f"Bot polling failed: {e}", exc_info=True)
+        raise e
