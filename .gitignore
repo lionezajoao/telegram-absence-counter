@@ -1,4 +1,5 @@
 .env
 postgres_data/
 bot_data/
+__pycache__/
 *.json

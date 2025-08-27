@@ -25,7 +25,7 @@ def upgrade() -> None:
         sa.Column('id', sa.String(), nullable=False),
         sa.Column('username', sa.String(), nullable=True),
         sa.Column('first_name', sa.String(), nullable=True),
-        sa.Column('ts', sa.Time(), nullable=False),
+        sa.Column('ts', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.PrimaryKeyConstraint('id')
     )
     op.create_table(
@@ -37,7 +37,7 @@ def upgrade() -> None:
         sa.Column('chat_id', sa.String(), nullable=True),
         sa.Column('ts', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.ForeignKeyConstraint(['chat_id'], ['chats.id'], ),
-        sa.UniqueConstraint('class_id', name='uq_class_id'),
+        sa.UniqueConstraint('class_id', 'chat_id', name='uq_class_chat'),
         sa.PrimaryKeyConstraint('id')
     )
     op.create_table(
