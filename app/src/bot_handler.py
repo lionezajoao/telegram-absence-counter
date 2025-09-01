@@ -277,7 +277,7 @@ class BotHandler:
 
     def _help_command(self, chat_id, text=None):
         return self._create_response_with_menu((
-            "Projeto desenvolvido por https://github.com/lionezajoao:\n"
+            "Projeto desenvolvido por João Pedro Lioneza:\n"
             "Link do repositório: https://github.com/lionezajoao/telegram-absence-counter\n"
             "Contribuições são bem-vindas!"
         ))
